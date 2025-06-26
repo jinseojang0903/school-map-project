@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>폐교 지도 시각화</title>
+
+  {{ header|safe }}
+
+  <script>
+    const topSchoolsData = JSON.parse('{{ top_5_schools|tojson|safe }}');
+    const allSchoolsData = JSON.parse('{{ all_schools|tojson|safe }}');
+  </script>
+
+  <style>
+    body.dark-mode,
+    .dark-mode {
+      background-color: #1e1e1e;
+      color: #f8f8f2;
+    }
+    body.dark-mode .sidebar-box-left,
+    body.dark-mode .sidebar-box-right,
+    body.dark-mode .modal-window {
+      background-color: rgba(30, 30, 30, 0.95);
+      color: #f8f8f2;
+      border: 1px solid #333;
+    }
+    body.dark-mode .modal-header {
+      border-bottom-color: #555;
+    }
+    body.dark-mode input,
+    body.dark-mode select,
+    body.dark-mode textarea {
+      background-color: #333;
+      color: #f8f8f2;
+      border-color: #555;
+    }
+    body.dark-mode .floating-toolbar {
+      background-color: rgba(20, 20, 20, 0.85);
+      color: #f8f8f2;
+    }
+    .dark-mode #map-container iframe {
+      filter: invert(90%) hue-rotate(180%);
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+    }
+    #map-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    .folium-map {
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .sidebar-box-left {
+      position: absolute;
+      left: 20px;
+      width: 220px;
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #000;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 18px;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+    }
+    .sidebar-box-right {
+      position: absolute;
+      left: auto;
+      right: 20px;
+      width: 400px;
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #000;
+      padding: 15px;
+      border-radius: 8px;
+      font-size: 18px;
+      z-index: 1000;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+    }
+    .sidebar-title {
+      font-weight: bold;
+      font-size: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .sidebar-content {
+      line-height: 1.6;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow: visible;
+    }
+    .sidebar-content label {
+      display: block;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    top5-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      justify-content: space-between;
+    }
+    #filter-top5-btn {
+      padding: 3px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: 1px solid #aaa;
+      background-color: #f0f0f0;
+    }
+    #info-box-2 ol {
+      padding-left: 0;
+      list-style-position: inside;
+      margin: 0;
+      font-size: 14px;
+    }
+    #info-box-2 li {
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #info-box-2 button {
+      margin-left: 10px;
+      padding: 2px 8px;
+      cursor: pointer;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+    }
+    #info-box-2 button:hover {
+      background-color: #e0e0e0;
+    }
+    
+    .collapsed .sidebar-content {
+      display: none;
+    }
+    .collapsed .toggle-arrow {
+      transform: rotate(180deg);
+    }
+    .close-btn {
+      cursor: pointer;
+      font-weight: bold;
+      padding: 0 5px;
+    }
+    .close-btn:hover {
+      color: #ff8a80;
+    }
+    .toggle-arrow {
+      transition: transform 0.3s ease;
+      margin-right: 8px;
+    }
+    .legend-icon {
+      width: 1em;
+      height: 1em;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+    .floating-toolbar {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      color: black;
+      border-radius: 50px;
+      padding: 10px 15px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      display: flex;
+      gap: 20px;
+      z-index: 2000;
+    }
+    .toolbar-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      font-size: 14px;
+      min-width: 60px;
+    }
+    .toolbar-item i {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+    .toolbar-item:hover {
+      color: #a7c7e7;
+    }
+    #panel-1 { top: 10px; }
+    #panel-2 { top: 70px; }
+    #panel-4 { top: 100px; }
+    #panel-3 { top: 20px; }
+    
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9998;
+    }
+    .modal-window {
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #000;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 20px 25px;
+      border-radius: 10px;
+      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
+      width: 500px;
+      max-width: 90%;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #aaa;
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+    .modal-close-btn {
+      font-size: 50px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .modal-close-btn:hover {
+      color: #ff8a80;
+    }
+    .hidden {
+      display: none;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .slider-container label {
+      width: 120px;
+      font-size: 16px;
+    }
+    .slider-container input[type="range"] {
+      flex-grow: 1;
+    }
+    .slider-container span {
+      width: 30px;
+      text-align: right;
+      font-weight: bold;
+    }
+
+    #filter-modal-content {
+      font-size: 16px;
+    }
+    #filter-checkboxes {
+      margin: 20px 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    #filter-checkboxes label {
+      font-size: 16px;
+    }
+    #apply-filter-btn {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      background-color: #4a90e2;
+      color: white;
+      border-radius: 5px;
+    }
+    #apply-filter-btn:hover {
+      background-color: #357abd;
+    }
+
+    #search-container {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      transition: all 0.4s ease-in-out;
+      z-index: 2000;
+    }
+    #search-icon {
+      font-size: 20px;
+      padding: 10px 15px;
+      cursor: pointer;
+      color: #555;
+    }
+    #search-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 0;
+      padding: 0;
+      font-size: 16px;
+      transition: all 0.4s ease-in-out;
+    }
+    
+    #search-container.active {
+      width: 400px;
+      background: #fff;
+    }
+    #search-container.active #search-input {
+      width: 100%;
+      padding: 10px 0 10px 10px;
+    }
+    
+    #search-suggestions {
+      position: absolute;
+      top: 110%; /* 검색창 바로 아래 */
+      left: 0;
+      right: 0;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      max-height: 300px;
+      overflow-y: auto;
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+    #search-suggestions li {
+      padding: 12px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+    #search-suggestions li:hover {
+      background-color: #f5f5f5;
+    }
+    #search-suggestions li:last-child {
+      border-bottom: none;
+    }
+
+    /* 다크모드 검색창 스타일 */
+    .dark-mode #search-container { background: rgba(40, 40, 40, 0.9); }
+    .dark-mode #search-container.active { background: #333; }
+    .dark-mode #search-icon { color: #ccc; }
+    .dark-mode #search-input { color: #f1f1f1; }
+    .dark-mode #search-suggestions { background: #333; border-color: #444; }
+    .dark-mode #search-suggestions li { border-bottom-color: #444; }
+    .dark-mode #search-suggestions li:hover { background-color: #4a4a4a; }
+
+
+  </style>
+</head>
+
+<body>
+  <div id="search-container">
+    <span id="search-icon">
+      <span class="search-text">🔍</span>
+    </span>
+    <input type="text" id="search-input" placeholder="폐교 이름을 검색하세요...">
+    <ul id="search-suggestions" class="hidden"></ul>
+  </div>
+
+  <div id="map-container">
+    {{ body_html|safe }}
+  </div>
+
+  <div class="sidebar-box-left collapsed" id="panel-1">
+    <div class="sidebar-title" onclick="togglePanel('panel-1')">
+      정보 체크박스
+      <span class="toggle-arrow">▲</span>
+    </div>
+    <div class="sidebar-content" id="info-box-1">
+      <label><input type="checkbox" name="facility" value="hospitals" checked> 병원<img src="./frontend/icons/hospital.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="conveniences" checked> 편의점<img src="./frontend/icons/conveniences.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="cafes" checked> 카페<img src="./frontend/icons/cafes.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="restaurants" checked> 음식점<img src="./frontend/icons/restaurant.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="gncStations" checked> 주유소 & 충전소<img src="./frontend/icons/gas.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="accommodations" checked> 숙박시설<img src="./frontend/icons/hotel.png" class="legend-icon"></label>
+      <label><input type="checkbox" name="facility" value="highways" checked> IC & JC<img src="./frontend/icons/highway.png" class="legend-icon"></label>
+    </div>
+  </div>
+
+  <div class="sidebar-box-left collapsed" id="panel-2">
+    <div class="sidebar-title" onclick="togglePanel('panel-2')">
+      <div class="top5-header">
+        <span>TOP 5</span>
+        <button id="filter-top5-btn" onclick="event.stopPropagation()">필터</button>
+      </div>
+      <span class="toggle-arrow">▲</span>
+    </div>
+    <div class="sidebar-content" id="info-box-2">
+    </div>
+  </div>
+
+<div class="sidebar-box-left collapsed" id="panel-4">
+    <div class="sidebar-title" onclick="togglePanel('panel-4')">
+      청년 지원사업 안내
+      <span class="toggle-arrow">▲</span>
+    </div>
+    <div class="sidebar-content" id="info-box-4" style="font-size: 15px;">
+      <ul style="padding-left: 20px; margin-top: 10px;">
+        <li style="margin-bottom: 12px;">
+          <a href="https://www.jnyouthcenter.kr" target="_blank" rel="noopener noreferrer">전남청년포털</a>
+        </li>
+        <li style="margin-bottom: 12px;">
+          <a href="https://www.k-startup.go.kr" target="_blank" rel="noopener noreferrer">K-Startup (창업지원)</a>
+        </li>
+        <li style="margin-bottom: 12px;">
+          <a href="https://www.greendaero.go.kr" target="_blank" rel="noopener noreferrer">그린대로 (귀농귀촌)</a>
+        </li>
+        <li style="margin-bottom: 12px;">
+          <a href="https://www.mcst.go.kr" target="_blank" rel="noopener noreferrer">문화체육관광부</a>
+        </li>
+        <li style="margin-bottom: 12px;">
+          <a href="https://www.bizinfo.go.kr" target="_blank" rel="noopener noreferrer">기업마당 (정책정보)</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sidebar-box-right collapsed hidden" id="panel-3">
+    <div class="sidebar-title" onclick="togglePanel('panel-3')">
+      <span class="toggle-arrow">▲</span>
+      <span id="school-title-text" style="text-align: center; flex-grow: 1;">학교 정보</span>
+      <span class="close-btn" onclick="closePanel('panel-3', event)">✖</span>
+    </div>
+    <div class="sidebar-content" id="info-box-3">
+      내용
+    </div>
+  </div>
+
+  <div class="floating-toolbar">
+    <div class="toolbar-item modal-trigger" data-modal-target="settings">
+      <span style="font-size: 25px;">⚙️</span>
+      <span>SETTING</span>
+    </div>
+    <div class="toolbar-item modal-trigger" data-modal-target="source">
+      <span style="font-size: 25px;">📖</span>
+      <span>SOURCE</span>
+    </div>
+    <div class="toolbar-item modal-trigger" data-modal-target="stack">
+      <span style="font-size: 25px;">💻</span>
+      <span>STACK</span>
+    </div>
+  </div>
+
+  <div id="main-modal-container" class="modal-overlay hidden">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <span id="close-modal-btn" class="modal-close-btn">&times;</span>
+      </div>
+      <div id="modal-content" class="modal-content"></div>
+    </div>
+  </div>
+
+  <div id="filter-modal" class="modal-overlay hidden">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h1 style="font-size: 40px; margin: 6px 0;">TOP 5 필터</h1>
+        <span id="close-filter-modal-btn" class="modal-close-btn">&times;</span>
+      </div>
+      <div id="filter-modal-content">
+        <p style="margin-top:0;">점수를 합산할 항목을 선택하세요.</p>
+        <div id="filter-checkboxes">
+        </div>
+        <button id="apply-filter-btn">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    {{ script|safe }}
+  </script>
+  <script src="/script/main.js"></script>
+</body>
+</html>
