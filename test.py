@@ -68,6 +68,26 @@ const MIN_ZOOM_LEVEL = 8;
 let currentAbortController = null;
 
 window.onload = function () {
+    const lightIconUrls = { 
+        'hospitals': "/frontend/icons/hospital.png",
+        'conveniences': "/frontend/icons/conveniences.png",
+        'cafes': "/frontend/icons/cafes.png",
+        'restaurants': "/frontend/icons/restaurant.png",
+        'gncStations': "/frontend/icons/gas.png",
+        'accommodations': "/frontend/icons/hotel.png",
+        'highway': "/frontend/icons/highway.png",
+        'default': "/frontend/icons/highway.png" 
+    };
+    const darkIconUrls = {
+        'cafes': "/frontend/icons/cafesw.png", 
+        'gncStations': "/frontend/icons/gasw.png",
+        'accommodations': "/frontend/icons/hotelw.png", 
+        'highway': "/frontend/icons/highwayw.png",
+        'default': "/frontend/icons/highwayw.png",
+        'hospitals': "/frontend/icons/hospital.png",
+        'conveniences': "/frontend/icons/conveniences.png",
+        'restaurants': "/frontend/icons/restaurant.png"
+    };
     const isDarkMode = new URLSearchParams(window.location.search).get('dark_mode') === 'true';
 
     const mapElem = document.querySelector('.folium-map');
@@ -89,27 +109,6 @@ window.onload = function () {
         const light_color_arr = ['red', 'blue', 'green'];
         const dark_color_arr = ['#FFD700', '#00FFFF', '#FF00FF'];
         const color_arr = isDarkMode ? dark_color_arr : light_color_arr;
-        
-        const lightIconUrls = { 
-            'hospitals': "/frontend/icons/hospital.png",
-            'conveniences': "/frontend/icons/conveniences.png",
-            'cafes': "/frontend/icons/cafes.png",
-            'restaurants': "/frontend/icons/restaurant.png",
-            'gncStations': "/frontend/icons/gas.png",
-            'accommodations': "/frontend/icons/hotel.png",
-            'highway': "/frontend/icons/highway.png",
-            'default': "/frontend/icons/highway.png" 
-        };
-        const darkIconUrls = {
-            'cafes': "/frontend/icons/cafesw.png", 
-            'gncStations': "/frontend/icons/gasw.png",
-            'accommodations': "/frontend/icons/hotelw.png", 
-            'highway': "/frontend/icons/highwayw.png",
-            'default': "/frontend/icons/highwayw.png",
-            'hospitals': "/frontend/icons/hospital.png",
-            'conveniences': "/frontend/icons/conveniences.png",
-            'restaurants': "/frontend/icons/restaurant.png"
-        };
 
         window._mainMap.on('zoomend', function() {
             const currentZoom = window._mainMap.getZoom();
@@ -160,13 +159,15 @@ window.onload = function () {
         function resetAllRoads() { routeLayerGroup.clearLayers(); cnt = 0; }
 
         window._mainMap.on('popupopen', function(e){
-            if (currentAbortController) {
-                currentAbortController.abort();
-            }
-            currentAbortController = new AbortController(); // 새 컨트롤러 생성
-
             const clickedLayer = e.popup._source;
             const isFacilityClick = clickedLayer.options.isFacilityMarker || false;
+            
+            if (!isFacilityClick) {
+                if (currentAbortController) {
+                    currentAbortController.abort();
+                }
+                currentAbortController = new AbortController();
+            }
             
             if (!isFacilityClick) {
                 const popupElement = e.popup.getElement();
@@ -200,8 +201,6 @@ window.onload = function () {
 
                                 schoolData.nearest_highways = data.highways || [];
                                 window.parent.showSchoolInfoPanel(schoolData);
-                                window._mainMap.closePopup(e.popup);
-
                             })
                              .catch(error => {
                                 if (error.name === 'AbortError') {
